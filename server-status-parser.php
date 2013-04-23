@@ -53,9 +53,10 @@
 							$client = $match[1][10]; // ip of the client
 							
 							switch (strtolower(trim(strip_tags($mode)))) {
-								case "w":								
-								case "r":								
-								case "k":								
+								case "w": // sending reply								
+								case "r": // reading request								
+								case "k": // keep-alive								
+								case "g": // waiting for gracefull restart								
 									// for now, only interested in these ones
 									if (!isset($clients[$client])) $clients[$client]["count"] = 0;
 									$clients[$client]["count"]++;
