@@ -26,8 +26,8 @@
 
 	function ipInNetwork($ip, $networks) {
 		foreach ($networks as $network) {
-			if ($network[0] <= $ip && $network[1] >= $ip) {
-				return true;
+			if ($network["ip1"] <= $ip && $network["ip2"] >= $ip) {
+				return $network;
 			}
 		}
 		return false;
@@ -126,6 +126,13 @@
 		}
 	}
 
+	function sortClients($a, $b) {
+		if ($a["count"] == $b["count"]) {
+			return 0;
+		}
+		return ($a["count"] < $b["count"]) ? -1 : 1;
+	}	
+	
 
 	// TODO: make parameterized
 	$in = "example.htm";
@@ -163,7 +170,10 @@
 								case "k": // keep-alive								
 								case "g": // waiting for gracefull restart								
 									// for now, only interested in these ones
-									if (!isset($clients[$client])) $clients[$client]["count"] = 0;
+									if (!isset($clients[$client])) {
+										$clients[$client]["count"] = 0;
+										$clients[$client]["ip"] = $client;
+									}
 									$clients[$client]["count"]++;
 							}
 							
@@ -183,29 +193,32 @@
 		echo ".";
 		
 		$ip = explodeIp($client);
-		if (!ipInNetwork($ip, $networks)) {
+		if (!$net = ipInNetwork($ip, $networks)) {
 			
 			$whois = getWhois("whois.iana.org", $client);
 			if (isset($whois["whois"])) {
-				$whois2 = getWhois($whois["whois"], $client);			
-				if (isset($whois2["cidr"])) $clients[$client]["cidr"] = $whois2["cidr"];
-				if (isset($whois2["inetnum"])) $clients[$client]["inetnum"] = $whois2["inetnum"];
-				if (isset($whois2["netname"])) $clients[$client]["netname"] = $whois2["netname"];
-				if (isset($whois2["orgname"])) $clients[$client]["orgname"] = $whois2["orgname"];
-				if (isset($whois2["name"])) $clients[$client]["name"] = $whois2["name"];
+				$whois2 = getWhois($whois["whois"], $client);
+				
+				$net = array();
+				
+				if (isset($whois2["cidr"])) $net["cidr"] = $whois2["cidr"];
+				if (isset($whois2["inetnum"])) $net["inetnum"] = $whois2["inetnum"];
+				if (isset($whois2["netname"])) $net["netname"] = $whois2["netname"];
+				if (isset($whois2["orgname"])) $net["orgname"] = $whois2["orgname"];
+				if (isset($whois2["name"])) $net["name"] = $whois2["name"];
 
-				if (isset($clients[$client]["cidr"])) {
-					$f = explodeIp($clients[$client]["cidr"]);
-					$t = explodeIp($clients[$client]["cidr"], true);
-				} else if (isset($clients[$client]["inetnum"])) {
+				if (isset($net["cidr"])) {
+					$f = explodeIp($net["cidr"]);
+					$t = explodeIp($net["cidr"], true);
+				} else if (isset($net["inetnum"])) {
 					
-					if (strpos($clients[$client]["inetnum"], '-') !== false) {
-						$i = explode('-', $clients[$client]["inetnum"]);
+					if (strpos($net["inetnum"], '-') !== false) {
+						$i = explode('-', $net["inetnum"]);
 						$f = explodeIp(trim($i[0]));
 						$t = explodeIp(trim($i[1]));
 					} else {
-						$f = explodeIp($clients[$client]["inetnum"]);
-						$t = explodeIp($clients[$client]["inetnum"], true);
+						$f = explodeIp($net["inetnum"]);
+						$t = explodeIp($net["inetnum"], true);
 					}
 					
 				} else {
@@ -214,18 +227,25 @@
 					$t = explodeIp($client . "/24", true);
 				}	
 				
-				$clients[$client]["f"] = $f;
-				$clients[$client]["t"] = $t;
+				$net["ip1"] = $f;
+				$net["ip2"] = $t;
 
-				// add network to network array				
-				$networks[] = array($f, $t);
+				// add network to network array
+				$clients[$client]["net"] = $net;
+				$networks[] = $net;
 								
 			}
+			
+		} else {
+			
+			$clients[$client]["net"] = $net;
 			
 		}
 		
 	}
 
+	uasort($clients, "sortClients");
+	
 	var_dump($clients);
 
 ?>
